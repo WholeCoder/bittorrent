@@ -6,6 +6,9 @@ import (
     "fmt"
     "bufio"
     "strconv"
+    "net/url"
+    "math/rand"
+    "crypto/sha1"
 )
 
 func RetrieveROM(filename string) ([]byte, error) {
@@ -41,7 +44,8 @@ const TOKEN_STRING_SEPARATOR = byte(':')
 var INFO_DICT_KEY_ORDER = [4]string{"length", "name", "piece length", "pieces"}
 
 func main() {
-    data, err := RetrieveROM("ubuntu-16.04.1-server-amd64.iso.torrent")
+    // data, err := RetrieveROM("ubuntu-16.04.1-server-amd64.iso.torrent")
+    data, err := RetrieveROM("ubuntu-20.10-desktop-amd64.iso.torrent")
     if err != nil {
         log.Fatal(err)
     }
@@ -56,7 +60,32 @@ func main() {
     //fmt.Println(torrent)
 
     encoder := Encoder{_data:torrent.(map[interface{}]interface{})["info"]}
-    fmt.Println("ENcoded info:  ", encoder.encode())
+    // fmt.Println("ENcoded info:  ", encoder.encode())
+    info_hash := encoder.encode()
+    h := sha1.New()
+    h.Write([]byte(info_hash))
+    bs := h.Sum(nil)
+
+    params := make(url.Values)
+    params.Add("info_hash", string(bs))
+
+    peer_id := "-PC0001-"
+    for i := 0; i < 12; i++ {
+        peer_id += string(rand.Intn(10))
+    }
+    params.Add("peer_id", peer_id)
+    params.Add("port", strconv.Itoa(6889))
+    params.Add("uploaded", strconv.Itoa(0))
+    params.Add("downloaded", strconv.Itoa(0))
+    params.Add("left", strconv.Itoa(torrent.(map[interface{}]interface{})["info"].(map[interface{}]interface{})["length"].(int)))
+    params.Add("compact", strconv.Itoa(1))
+
+    first := true
+    if first {
+        params.Add("event", "started")
+    }
+    url := torrent.(map[interface{}]interface{})["announce"].(string) + "?" + params.Encode()
+    fmt.Println(url)
 }
 
 type Encoder struct {
@@ -168,7 +197,7 @@ func (d *Decoder) _consume() {
 
 func (d *Decoder) _read(length int) []byte {
     if d._index + length > len(d._data) {
-        panic("Cannot rad bytes from current position")
+        panic("Cannot read bytes from current position")
     }
     res := d._data[d._index:d._index + length]
     d._index += length
