@@ -1,44 +1,43 @@
 package main
 
 import (
-    "os"
-    "log"
-    "net"
-    "fmt"
-    "bufio"
-    "strconv"
-    "net/url"
-    "net/http"
-    "io/ioutil"
-    "math/rand"
-    "crypto/sha1"
-    "encoding/binary"
-    "github.com/roman-kachanovsky/go-binary-pack/binary-pack"
+	"fmt"
+	"log"
+	"net"
+	"os"
+	//"math"
+	"bufio"
+	"crypto/sha1"
+	"encoding/binary"
+	"github.com/roman-kachanovsky/go-binary-pack/binary-pack"
+	"io/ioutil"
+	"math/rand"
+	"net/http"
+	"net/url"
+	"strconv"
 )
 
 func RetrieveROM(filename string) ([]byte, error) {
-    file, err := os.Open(filename)
+	file, err := os.Open(filename)
 
-    if err != nil {
-        return nil, err
-    }
-    defer file.Close()
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
 
-    stats, statsErr := file.Stat()
-    if statsErr != nil {
-        return nil, statsErr
-    }
+	stats, statsErr := file.Stat()
+	if statsErr != nil {
+		return nil, statsErr
+	}
 
-    var size int64 = stats.Size()
-    bytes := make([]byte, size)
+	var size int64 = stats.Size()
+	bytes := make([]byte, size)
 
-    bufr := bufio.NewReader(file)
-    _,err = bufr.Read(bytes)
+	bufr := bufio.NewReader(file)
+	_, err = bufr.Read(bytes)
 
-    return bytes, err
+	return bytes, err
 }
-
-
 
 const TOKEN_INTEGER = byte('i')
 const TOKEN_LIST = byte('l')
@@ -49,269 +48,276 @@ const TOKEN_STRING_SEPARATOR = byte(':')
 var INFO_DICT_KEY_ORDER = [4]string{"length", "name", "piece length", "pieces"}
 
 func main() {
-    // data, err := RetrieveROM("ubuntu-16.04.1-server-amd64.iso.torrent")
-    data, err := RetrieveROM("ubuntu-20.10-desktop-amd64.iso.torrent")
-    if err != nil {
-        log.Fatal(err)
-    }
-    //fmt.Println(string(data)) 
-    decoder := Decoder{_data: data, _index:0}
-    torrent, ok := decoder.decode()
-    if !ok {
-        panic("EOFError! - Unexpected end of file!")
-    }
-    fmt.Println(torrent.(map[interface{}]interface{})["info"].(map[interface{}]interface{})["piece length"])
-    fmt.Println(torrent.(map[interface{}]interface{})["announce"])
-    //fmt.Println(torrent)
+	// data, err := RetrieveROM("ubuntu-16.04.1-server-amd64.iso.torrent")
+	data, err := RetrieveROM("ubuntu-20.10-desktop-amd64.iso.torrent")
+	if err != nil {
+		log.Fatal(err)
+	}
+	//fmt.Println(string(data))
+	decoder := Decoder{_data: data, _index: 0}
+	torrent, ok := decoder.decode()
+	if !ok {
+		panic("EOFError! - Unexpected end of file!")
+	}
+	fmt.Println(torrent.(map[interface{}]interface{})["info"].(map[interface{}]interface{})["piece length"])
+	fmt.Println(torrent.(map[interface{}]interface{})["announce"])
+	//fmt.Println(torrent)
 
-    encoder := Encoder{_data:torrent.(map[interface{}]interface{})["info"]}
-    // fmt.Println("ENcoded info:  ", encoder.encode())
-    info_hash := encoder.encode()
-    h := sha1.New()
-    h.Write([]byte(info_hash))
-    bs := h.Sum(nil)
+	encoder := Encoder{_data: torrent.(map[interface{}]interface{})["info"]}
+	// fmt.Println("ENcoded info:  ", encoder.encode())
+	info_hash := encoder.encode()
+	h := sha1.New()
+	h.Write([]byte(info_hash))
+	bs := h.Sum(nil)
 
-    params := make(url.Values)
-    params.Add("info_hash", string(bs))
+	params := make(url.Values)
+	params.Add("info_hash", string(bs))
 
-    peer_id := "-PC0001-"
-    for i := 0; i < 12; i++ {
-        peer_id += string(rand.Intn(10))
-    }
-    params.Add("peer_id", peer_id)
-    params.Add("port", strconv.Itoa(6889))
-    params.Add("uploaded", strconv.Itoa(0))
-    params.Add("downloaded", strconv.Itoa(0))
-    params.Add("left", strconv.Itoa(torrent.(map[interface{}]interface{})["info"].(map[interface{}]interface{})["length"].(int)))
-    params.Add("compact", strconv.Itoa(1))
+	peer_id := "-PC0001-"
+	for i := 0; i < 12; i++ {
+		peer_id += string(rand.Intn(10))
+	}
+	params.Add("peer_id", peer_id)
+	params.Add("port", strconv.Itoa(6889))
+	params.Add("uploaded", strconv.Itoa(0))
+	params.Add("downloaded", strconv.Itoa(0))
+	params.Add("left", strconv.Itoa(torrent.(map[interface{}]interface{})["info"].(map[interface{}]interface{})["length"].(int)))
+	params.Add("compact", strconv.Itoa(1))
 
-    first := true
-    if first {
-        params.Add("event", "started")
-    }
-    url := torrent.(map[interface{}]interface{})["announce"].(string) + "?" + params.Encode()
-    // fmt.Println(url)
-    resp, err := http.Get(url)
-    if err != nil {
-        log.Fatal(err)
-    }
-    b, err := ioutil.ReadAll(resp.Body)
-    resp.Body.Close()
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Println("data retrieved: ", string(b))
+	first := true
+	if first {
+		params.Add("event", "started")
+	}
+	url := torrent.(map[interface{}]interface{})["announce"].(string) + "?" + params.Encode()
+	// fmt.Println(url)
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("data retrieved: ", string(b))
 
-    peerDecoder := Decoder{_data: b, _index:0}
-    peerMap, ok := peerDecoder.decode()
-    if !ok {
-        panic("EOFError! - Unexpected end of file!")
-    }
-    peers := peerMap.(map[interface {}]interface {})["peers"].(string)
-    fmt.Printf("%#v : %#v", peers[0:4], peers[4:6])
+	peerDecoder := Decoder{_data: b, _index: 0}
+	peerMap, ok := peerDecoder.decode()
+	if !ok {
+		panic("EOFError! - Unexpected end of file!")
+	}
+	peers := peerMap.(map[interface{}]interface{})["peers"].(string)
+	fmt.Printf("%#v : %#v", peers[0:4], peers[4:6])
 
-    ipBytes := peers[0:4]
-    ip := net.IP(ipBytes)
+	ipBytes := peers[0:4]
+	ip := net.IP(ipBytes)
 
-    port := binary.BigEndian.Uint16([]byte(peers[4:6]))
+	port := binary.BigEndian.Uint16([]byte(peers[4:6]))
 
-    fmt.Println("\n", ip, ":", port)
+	fmt.Println("\n", ip, ":", port)
 
-    format := []string{"I", "?", "d", "6s"}
-    values := []interface{}{4, true, 3.14, "Golang"}
-    bp := new(binary_pack.BinaryPack)
+	format := []string{"I", "?", "d", "6s"}
+	values := []interface{}{4, true, 3.14, "Golang"}
+	bp := new(binary_pack.BinaryPack)
 
-    data2, err := bp.Pack(format, values)
-    fmt.Println("Packed data: ", data2)
+	data2, err := bp.Pack(format, values)
+	fmt.Printf("Packed data: %#v", data2)
 
-    unpacked_values, err := bp.UnPack(format, data2)
-    fmt.Println("Un Packed data: ", unpacked_values)
+	unpacked_values, err := bp.UnPack(format, data2)
+	fmt.Println("Un Packed data: ", unpacked_values)
 
-    size, err := bp.CalcSize(format)
-    fmt.Println("size:", size)
+	size, err := bp.CalcSize(format)
+	fmt.Println("size:", size)
+
+	// read 2^14 bytes from the Reader called r
+	/*
+	   n := int(math.Pow(2, 14))
+	   p := make([]byte, n)
+	   _, err := io.ReadFull(r, p)
+	*/
 
 } // main
 
 type Encoder struct {
-    _data interface{}
+	_data interface{}
 }
 
 func (e *Encoder) encode() string {
-    return e.encode_next(e._data)
+	return e.encode_next(e._data)
 }
 
 func (e *Encoder) encode_next(myInterface interface{}) string {
-    switch v := myInterface.(type) {
-    case int:
-        // v is an int here, so e.g. v + 1 is possible.
-        return e._encode_int(myInterface.(int)) + "e"
-    case float64:
-        // v is a float64 here, so e.g. v + 1.0 is possible.
-        fmt.Printf("Float64: %v", v)
-    case string:
-        // v is a string here, so e.g. v + " Yeah!" is possible.
-        return e._encode_string(myInterface.(string))
-    case map[interface{}]interface{}:
-        return e._encode_map(myInterface.(map[interface{}]interface{}))
-    case []interface{}:
-        return e._encode_slice(myInterface.([]interface{}))
-    default:
-        // And here I'm feeling dumb. ;)
-        fmt.Printf("I don't know, ask stackoverflow.")
-    }
-    return ""
+	switch v := myInterface.(type) {
+	case int:
+		// v is an int here, so e.g. v + 1 is possible.
+		return e._encode_int(myInterface.(int)) + "e"
+	case float64:
+		// v is a float64 here, so e.g. v + 1.0 is possible.
+		fmt.Printf("Float64: %v", v)
+	case string:
+		// v is a string here, so e.g. v + " Yeah!" is possible.
+		return e._encode_string(myInterface.(string))
+	case map[interface{}]interface{}:
+		return e._encode_map(myInterface.(map[interface{}]interface{}))
+	case []interface{}:
+		return e._encode_slice(myInterface.([]interface{}))
+	default:
+		// And here I'm feeling dumb. ;)
+		fmt.Printf("I don't know, ask stackoverflow.")
+	}
+	return ""
 }
 
 func (e *Encoder) _encode_int(value int) string {
-    return "i" + strconv.Itoa(value)
+	return "i" + strconv.Itoa(value)
 }
 
 func (e *Encoder) _encode_string(value string) string {
-    return strconv.Itoa(len(value)) + ":" + value
+	return strconv.Itoa(len(value)) + ":" + value
 }
 
 func (e *Encoder) _encode_slice(data []interface{}) string {
-    result := "l"
-    for _, item := range data {
-        result += e.encode_next(item)
-    }
-    result += "e"
-    return result
+	result := "l"
+	for _, item := range data {
+		result += e.encode_next(item)
+	}
+	result += "e"
+	return result
 }
 
 func (e *Encoder) _encode_map(data map[interface{}]interface{}) string {
-    result := "d"
-    for _, item := range INFO_DICT_KEY_ORDER {
-        key := e.encode_next(item)
-        value := e.encode_next(data[item])
-        result += key
-        result += value
-    }
-    result += "e"
-    return result
+	result := "d"
+	for _, item := range INFO_DICT_KEY_ORDER {
+		key := e.encode_next(item)
+		value := e.encode_next(data[item])
+		result += key
+		result += value
+	}
+	result += "e"
+	return result
 }
 
 type Decoder struct {
-    _data []byte
-    _index int
+	_data  []byte
+	_index int
 }
 
 func (d *Decoder) decode() (interface{}, bool) {
-    c, ok := d._peek()
-    if !ok {
-        panic("EOFError! - Unexpected end of file!")
-    } else if c == TOKEN_INTEGER {
-        d._consume()
-        return d._decode_int(), true
-    } else if c == TOKEN_LIST {
-        d._consume()
-        return d._decode_list(), true
-    } else if c == TOKEN_DICT {
-        d._consume()
-        return d._decode_dict(), true
-    } else if c == TOKEN_END {
-        return 0, false
-    } else if isInByteArray(c, []byte("0123456789")) {
-        // fmt.Println("---------------------> decoding integer for a string")
-        return d._decode_string(), true
-    } else {
-        panic("Invalid token")
-    }
+	c, ok := d._peek()
+	if !ok {
+		panic("EOFError! - Unexpected end of file!")
+	} else if c == TOKEN_INTEGER {
+		d._consume()
+		return d._decode_int(), true
+	} else if c == TOKEN_LIST {
+		d._consume()
+		return d._decode_list(), true
+	} else if c == TOKEN_DICT {
+		d._consume()
+		return d._decode_dict(), true
+	} else if c == TOKEN_END {
+		return 0, false
+	} else if isInByteArray(c, []byte("0123456789")) {
+		// fmt.Println("---------------------> decoding integer for a string")
+		return d._decode_string(), true
+	} else {
+		panic("Invalid token")
+	}
 }
 
 func isInByteArray(c byte, bSlice []byte) bool {
-    for _, value := range bSlice {
-        if value == c {
-            return true
-        }
-    }
-    return false
+	for _, value := range bSlice {
+		if value == c {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *Decoder) _peek() (byte, bool) {
-    if d._index +1 >= len(d._data) {
-        return 0, false
-    }
-    return d._data[d._index:d._index + 1][0], true
+	if d._index+1 >= len(d._data) {
+		return 0, false
+	}
+	return d._data[d._index : d._index+1][0], true
 }
 
 func (d *Decoder) _consume() {
-    d._index += 1
+	d._index += 1
 }
 
 func (d *Decoder) _read(length int) []byte {
-    if d._index + length > len(d._data) {
-        panic("Cannot read bytes from current position")
-    }
-    res := d._data[d._index:d._index + length]
-    d._index += length
-    return res
+	if d._index+length > len(d._data) {
+		panic("Cannot read bytes from current position")
+	}
+	res := d._data[d._index : d._index+length]
+	d._index += length
+	return res
 }
 
 func (d *Decoder) _read_until(token byte) []byte {
-    occurrence, found := index(d._data, token, d._index)
-    if !found {
-        panic("Unable to find token")
-    }
-    result := d._data[d._index:occurrence]
-    d._index = occurrence + 1
-    return result
+	occurrence, found := index(d._data, token, d._index)
+	if !found {
+		panic("Unable to find token")
+	}
+	result := d._data[d._index:occurrence]
+	d._index = occurrence + 1
+	return result
 }
 
 func (d *Decoder) _decode_int() int {
-    return parseIntFromBytes(d._read_until(TOKEN_END))
+	return parseIntFromBytes(d._read_until(TOKEN_END))
 }
 
 func (d *Decoder) _decode_list() []interface{} {
-    res := []interface{}{}
+	res := []interface{}{}
 
-    for d._data[d._index: d._index + 1][0] != TOKEN_END {
-        value, ok := d.decode()
-        if !ok {
-            log.Fatal(ok)
-        }
-        res = append(res, value)
-    }
-    d._consume() // consure the END token
-    return res
+	for d._data[d._index : d._index+1][0] != TOKEN_END {
+		value, ok := d.decode()
+		if !ok {
+			log.Fatal(ok)
+		}
+		res = append(res, value)
+	}
+	d._consume() // consure the END token
+	return res
 }
 
 func (d *Decoder) _decode_dict() interface{} {
-    res := make(map[interface{}]interface{})
-    for d._data[d._index  : d._index + 1][0] != TOKEN_END {
-        key, ok := d.decode()
-        obj, ok := d.decode()
-        if !ok {
-            log.Fatal(ok)
-        }
-        res[key] = obj
-    }
-    d._consume()  // the END token
-    return res
+	res := make(map[interface{}]interface{})
+	for d._data[d._index : d._index+1][0] != TOKEN_END {
+		key, ok := d.decode()
+		obj, ok := d.decode()
+		if !ok {
+			log.Fatal(ok)
+		}
+		res[key] = obj
+	}
+	d._consume() // the END token
+	return res
 }
 
 func (d *Decoder) _decode_string() interface{} {
-    bytes_to_read := parseIntFromBytes(d._read_until(TOKEN_STRING_SEPARATOR))
-    data := d._read(bytes_to_read)
-    // fmt.Printf("-----------------------> parsed string of type %T", data)
-    return string(data)
+	bytes_to_read := parseIntFromBytes(d._read_until(TOKEN_STRING_SEPARATOR))
+	data := d._read(bytes_to_read)
+	// fmt.Printf("-----------------------> parsed string of type %T", data)
+	return string(data)
 }
 
 func parseIntFromBytes(b []byte) int {
-    str := string(b[:])
-    i, err := strconv.Atoi(str)
-    if err != nil {
-        log.Fatal(err)
-    }
-    // fmt.Printf("------------------------->  parsed integer: %#v\n", i)
-    return i
+	str := string(b[:])
+	i, err := strconv.Atoi(str)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// fmt.Printf("------------------------->  parsed integer: %#v\n", i)
+	return i
 }
 
 func index(data []byte, token byte, index int) (int, bool) {
-    for i := index; i < len(data); i++ {
-        if data[i] == token {
-            return i, true
-        }
-    }
-    return -1, false
+	for i := index; i < len(data); i++ {
+		if data[i] == token {
+			return i, true
+		}
+	}
+	return -1, false
 }
