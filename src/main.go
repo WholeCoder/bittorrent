@@ -119,9 +119,14 @@ func main() {
 
     format := []string{"I", "?", "d", "6s"}
     values := []interface{}{4, true, 3.14, "Golang"}
-    bp := new(BinaryPack)
+    bp := new(binary_pack.BinaryPack)
+
     data2, err := bp.Pack(format, values)
+    fmt.Println("Packed data: ", data2)
+
     unpacked_values, err := bp.UnPack(format, data2)
+    fmt.Println("Un Packed data: ", unpacked_values)
+
     size, err := bp.CalcSize(format)
     fmt.Println("size:", size)
 
