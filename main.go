@@ -3,12 +3,16 @@ package main
 import (
     "os"
     "log"
+    "net"
     "fmt"
     "bufio"
     "strconv"
     "net/url"
+    "net/http"
+    "io/ioutil"
     "math/rand"
     "crypto/sha1"
+    "encoding/binary"
 )
 
 func RetrieveROM(filename string) ([]byte, error) {
@@ -85,8 +89,34 @@ func main() {
         params.Add("event", "started")
     }
     url := torrent.(map[interface{}]interface{})["announce"].(string) + "?" + params.Encode()
-    fmt.Println(url)
-}
+    // fmt.Println(url)
+    resp, err := http.Get(url)
+    if err != nil {
+        log.Fatal(err)
+    }
+    b, err := ioutil.ReadAll(resp.Body)
+    resp.Body.Close()
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println("data retrieved: ", string(b))
+
+    peerDecoder := Decoder{_data: b, _index:0}
+    peerMap, ok := peerDecoder.decode()
+    if !ok {
+        panic("EOFError! - Unexpected end of file!")
+    }
+    peers := peerMap.(map[interface {}]interface {})["peers"].(string)
+    fmt.Printf("%#v : %#v", peers[0:4], peers[4:6])
+
+    ipBytes := peers[0:4]
+    ip := net.IP(ipBytes)
+
+    port := binary.BigEndian.Uint16([]byte(peers[4:6]))
+
+    fmt.Println("\n", ip, ":", port)
+
+} // main
 
 type Encoder struct {
     _data interface{}
