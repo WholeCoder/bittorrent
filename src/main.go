@@ -13,6 +13,7 @@ import (
     "math/rand"
     "crypto/sha1"
     "encoding/binary"
+    "github.com/roman-kachanovsky/go-binary-pack/binary-pack"
 )
 
 func RetrieveROM(filename string) ([]byte, error) {
@@ -115,6 +116,14 @@ func main() {
     port := binary.BigEndian.Uint16([]byte(peers[4:6]))
 
     fmt.Println("\n", ip, ":", port)
+
+    format := []string{"I", "?", "d", "6s"}
+    values := []interface{}{4, true, 3.14, "Golang"}
+    bp := new(BinaryPack)
+    data2, err := bp.Pack(format, values)
+    unpacked_values, err := bp.UnPack(format, data2)
+    size, err := bp.CalcSize(format)
+    fmt.Println("size:", size)
 
 } // main
 
