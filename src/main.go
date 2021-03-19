@@ -9,12 +9,12 @@ import (
 	"bufio"
 	"crypto/sha1"
 	"encoding/binary"
-	"github.com/roman-kachanovsky/go-binary-pack/binary-pack"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
+	"github.com/roman-kachanovsky/go-binary-pack/binary-pack"
 )
 
 func RetrieveROM(filename string) ([]byte, error) {
@@ -137,6 +137,27 @@ func main() {
 	*/
 
 } // main
+
+// PeerMessage Enums
+const (
+	ChokeEnum = iota
+	UnchokeEnum
+	InterestedEnum
+    NotInterestedEnum
+    HaveEnum
+    BitFieldEnum
+    RequestEnum
+    PieceEnum
+    CancelEnum
+    PortEnum
+    HandshakeEnum // listed as None in python client
+    KeepAliveEnum // listed as None in python client
+)
+
+type PeerMessage interface {
+    encode() []byte
+    decode([]byte) PeerMessage
+}
 
 type Encoder struct {
 	_data interface{}
