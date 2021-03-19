@@ -9,12 +9,12 @@ import (
 	"bufio"
 	"crypto/sha1"
 	"encoding/binary"
+	"github.com/roman-kachanovsky/go-binary-pack/binary-pack"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
-	"github.com/roman-kachanovsky/go-binary-pack/binary-pack"
 )
 
 func RetrieveROM(filename string) ([]byte, error) {
@@ -143,20 +143,65 @@ const (
 	ChokeEnum = iota
 	UnchokeEnum
 	InterestedEnum
-    NotInterestedEnum
-    HaveEnum
-    BitFieldEnum
-    RequestEnum
-    PieceEnum
-    CancelEnum
-    PortEnum
-    HandshakeEnum // listed as None in python client
-    KeepAliveEnum // listed as None in python client
+	NotInterestedEnum
+	HaveEnum
+	BitFieldEnum
+	RequestEnum
+	PieceEnum
+	CancelEnum
+	PortEnum
+	HandshakeEnum // listed as None in python client
+	KeepAliveEnum // listed as None in python client
 )
 
 type PeerMessage interface {
-    encode() []byte
-    decode([]byte) PeerMessage
+	encode() []byte
+	decode([]byte) PeerMessage
+}
+
+type Handshake struct {
+	info_hash string
+	peer_id   string
+}
+
+// Handshake Constructor
+func (h *Handshake) init(info_hash []byte, peer_id string) {
+	h.info_hash = string(info_hash)
+	h.peer_id = peer_id
+}
+
+func (h *Handshake) encode() []byte {
+	format := []string{"B", "19s", "8x", "20s", "20s"}
+	values := []interface{}{19, "BitTorrent protocol", h.info_hash, h.peer_id}
+	bp := new(binary_pack.BinaryPack)
+
+	data2, err := bp.Pack(format, values)
+	fmt.Printf("Packed data: %#v", data2)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return data2
+}
+
+func (h *Handshake) decode(data []byte) PeerMessage {
+	if len(data) < (49 + 19) {
+		return nil
+	}
+	bp := new(binary_pack.BinaryPack)
+	unpacked_values, err := bp.UnPack([]string{"B", "19s", "8x", "20s", "20s"}, data)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Un Packed data: ", unpacked_values)
+	info_hash := unpacked_values[2].(string)
+	peer_id := unpacked_values[3].(string)
+
+	hShake := Handshake{info_hash: info_hash, peer_id: peer_id}
+
+	var hShakePeerMessage PeerMessage = &hShake
+	return hShakePeerMessage
 }
 
 type Encoder struct {
