@@ -2,21 +2,21 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
-    "io"
 	//"math"
 	"bufio"
-    "bytes"
+	"bytes"
 	"crypto/sha1"
 	"encoding/binary"
+	"github.com/lunixbochs/struc"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
-    "github.com/lunixbochs/struc"
 )
 
 func RetrieveROM(filename string) ([]byte, error) {
@@ -110,72 +110,84 @@ func main() {
 	}
 	peers := peerMap.(map[interface{}]interface{})["peers"].(string)
 
-    ipBytes := peers[0:4]
+	ipBytes := peers[0:4]
 	ip := net.IP(ipBytes)
 
 	port := binary.BigEndian.Uint16([]byte(peers[4:6]))
 
-    service := ip.String() + ":" + strconv.Itoa(int(port))
-    fmt.Println("Service: ", service)
+	service := ip.String() + ":" + strconv.Itoa(int(port))
+	peerMessage := make(chan PeerMessage)
 
-    tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
-    if err != nil {
-        log.Fatal(err)
-    }
+	go PeerStreamIterator(service, peerMessage, peer_id, bs)
 
-    conn, err := net.DialTCP("tcp", nil, tcpAddr)
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer conn.Close()
+	for message := range peerMessage {
+		fmt.Printf("\nGot Message:  %#v\n", message)
+	}
+} // main
 
-    hShake := Handshake{}
-    hShake.init(bs, peer_id)
+func PeerStreamIterator(service string, peerMessage chan PeerMessage, peer_id string, info_hash []byte) {
+	fmt.Println("Service: ", service)
 
-    _, err = conn.Write(hShake.encode())
-    if err != nil {
-        log.Fatal(err)
-    }
+	tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	hShake := Handshake{}
+	hShake.init(info_hash, peer_id)
+
+	_, err = conn.Write(hShake.encode())
+	if err != nil {
+		log.Fatal(err)
+	}
 	// read 2^14 bytes from the Reader called r
 	n := 68
 	p := make([]byte, n)
 	_, err = io.ReadFull(conn, p)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("Read in bytes as string: %v\n", string(p))
-    fmt.Printf("Read in bytes: %#v\nLength of bytes: %v\n", p, len(p))
-    fmt.Printf("\nStruct Returned = %#v\n",hShake.decode(p))
-    returnHShake := hShake.decode(p).(*Handshake)
-    fmt.Printf("Length of peer_id: %v\n", len(returnHShake.peer_id))
-    fmt.Printf("Length of info_hash: %v\n", len(returnHShake.info_hash))
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Read in bytes as string: %v\n", string(p))
+	fmt.Printf("Read in bytes: %#v\nLength of bytes: %v\n", p, len(p))
+	fmt.Printf("\nStruct Returned = %#v\n", hShake.decode(p))
+	returnHShake := hShake.decode(p).(*Handshake)
+	fmt.Printf("Length of peer_id: %v\n", len(returnHShake.peer_id))
+	fmt.Printf("Length of info_hash: %v\n", len(returnHShake.info_hash))
 
-    remote_id := returnHShake.peer_id
-    fmt.Println("\nRemote id: ", remote_id)
+	remote_id := returnHShake.peer_id
+	fmt.Println("\nRemote id: ", remote_id)
 
-    message := Interested{}
-    fmt.Println("Sending Message:  Interested")
-    _, err = conn.Write(message.encode())
-    if err != nil {
-        fmt.Println("ERROR writing Interested Message")
-        log.Fatal(err)
-    }
-    fmt.Printf("\nInterested.encode():  %#v\n",message.encode())
+	message := Interested{}
+	fmt.Println("Sending Message:  Interested")
+	_, err = conn.Write(message.encode())
+	if err != nil {
+		fmt.Println("ERROR writing Interested Message")
+		log.Fatal(err)
+	}
+	fmt.Printf("\nInterested.encode():  %#v\n", message.encode())
 	n = 5
 	p = make([]byte, n)
 	_, err = io.ReadFull(conn, p)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("\nBitArray lenth: %v\tMessage Id: %#v\n", int(binary.BigEndian.Uint32(p[0:4])) - 1, p[4])
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("\nBitArray lenth: %v\tMessage Id: %#v\n", int(binary.BigEndian.Uint32(p[0:4]))-1, p[4])
 
-    p = make([]byte, binary.BigEndian.Uint32(p[0:4]) - 1)
+	p = make([]byte, binary.BigEndian.Uint32(p[0:4])-1)
 	_, err = io.ReadFull(conn, p)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("\nBitArray data: %v\n", p)
-} // main
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("\nBitArray data: %v\n", p)
+	var hShakePeerMessage PeerMessage = &hShake
+	peerMessage <- hShakePeerMessage
+}
 
 // PeerMessage Enums
 const (
@@ -199,33 +211,33 @@ type PeerMessage interface {
 }
 
 type HandshakeStruct struct {
-    Length byte `struc:"big"`
-    Protocol string `struc:"[19]byte"`
-    Space [8]byte
-    Info_hash string `struc:"[20]byte"`
-    Peer_id string `struc:"[20]byte"`
+	Length    byte   `struc:"big"`
+	Protocol  string `struc:"[19]byte"`
+	Space     [8]byte
+	Info_hash string `struc:"[20]byte"`
+	Peer_id   string `struc:"[20]byte"`
 }
 
 type InterestedStruct struct {
-    Length int `struc:"big"`
-    Id byte
+	Length int `struc:"big"`
+	Id     byte
 }
 
 type Interested struct {
 }
 
 func (i *Interested) encode() []byte {
-    var buf bytes.Buffer
-    t := &InterestedStruct{1, InterestedEnum}
-    err := struc.Pack(&buf, t)
-    if err != nil {
-        log.Fatal(err)
-    }
-    return buf.Bytes()
+	var buf bytes.Buffer
+	t := &InterestedStruct{1, InterestedEnum}
+	err := struc.Pack(&buf, t)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return buf.Bytes()
 }
 
 func (i *Interested) decode(data []byte) PeerMessage {
-    return nil
+	return nil
 }
 
 type Handshake struct {
@@ -240,14 +252,14 @@ func (h *Handshake) init(info_hash []byte, peer_id string) {
 }
 
 func (h *Handshake) encode() []byte {
-    var buf bytes.Buffer
-    t := &HandshakeStruct{byte(19), "BitTorrent protocol", [8]byte{0,0,0,0,0,0,0,0},h.info_hash, h.peer_id}
-    err := struc.Pack(&buf, t)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("\n%#v\n\n", t)
-    fmt.Printf("%#v\n\n", buf.Bytes())
+	var buf bytes.Buffer
+	t := &HandshakeStruct{byte(19), "BitTorrent protocol", [8]byte{0, 0, 0, 0, 0, 0, 0, 0}, h.info_hash, h.peer_id}
+	err := struc.Pack(&buf, t)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("\n%#v\n\n", t)
+	fmt.Printf("%#v\n\n", buf.Bytes())
 
 	return buf.Bytes()
 }
@@ -256,17 +268,16 @@ func (h *Handshake) decode(data []byte) PeerMessage {
 	/*if len(data) < (49 + 19) {
 		return nil
 	}*/
-    var buf bytes.Buffer
-    buf.Write(data)
+	var buf bytes.Buffer
+	buf.Write(data)
 
-    o := &HandshakeStruct{}
-    err := struc.Unpack(&buf, o)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("Unpacked struc:  %#v\n\n", o)
-    fmt.Printf("\nProtocol %v\n", o.Protocol)
-
+	o := &HandshakeStruct{}
+	err := struc.Unpack(&buf, o)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Unpacked struc:  %#v\n\n", o)
+	fmt.Printf("\nProtocol %v\n", o.Protocol)
 
 	hShake := Handshake{info_hash: o.Info_hash, peer_id: o.Peer_id}
 
