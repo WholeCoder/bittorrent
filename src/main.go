@@ -157,9 +157,24 @@ func main() {
     fmt.Println("Sending Message:  Interested")
     _, err = conn.Write(message.encode())
     if err != nil {
+        fmt.Println("ERROR writing Interested Message")
         log.Fatal(err)
     }
+    fmt.Printf("\nInterested.encode():  %#v\n",message.encode())
+	n = 5
+	p = make([]byte, n)
+	_, err = io.ReadFull(conn, p)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("\nBitArray lenth: %v\tMessage Id: %#v\n", int(binary.BigEndian.Uint32(p[0:4])), p[4])
 
+    p = make([]byte, binary.BigEndian.Uint32(p[0:4]))
+	_, err = io.ReadFull(conn, p)
+    if err != nil {
+        log.Fatal(err)
+    }
+    // fmt.Printf("\nBitArray data: %v\n", p)
 } // main
 
 // PeerMessage Enums
@@ -192,8 +207,8 @@ type HandshakeStruct struct {
 }
 
 type InterestedStruct struct {
-    length int
-    id byte
+    Length int `struc:"big"`
+    Id byte
 }
 
 type Interested struct {
