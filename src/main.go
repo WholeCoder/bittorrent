@@ -136,14 +136,14 @@ func main() {
         log.Fatal(err)
     }
 	// read 2^14 bytes from the Reader called r
-	n := 61//int(math.Pow(2, 2))
+	n := 68//int(math.Pow(2, 2))
 	p := make([]byte, n)
 	_, err = io.ReadFull(conn, p)
     if err != nil {
         log.Fatal(err)
     }
-
-    fmt.Println("Read in bytes: ", string(p))
+    fmt.Printf("Read in bytes as string: %v\n", string(p))
+    fmt.Printf("Read in bytes: %#v\nLength of bytes: %v\n", p, len(p))
     fmt.Printf("\nStruct Returned = %#v\n",hShake.decode(p))
 
 
