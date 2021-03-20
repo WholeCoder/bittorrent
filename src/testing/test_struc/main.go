@@ -9,10 +9,11 @@ import (
 
 type Example struct {
     Length byte `struc:"big"`
-    Protocol string
+    Protocol string `struc:"[19]int8"`
     Space [8]byte
-    Info_hash string
-    Peer_id string
+    Info_hash string `struc:"[20]int8"`
+    Peer_id string `struc:"[20]int8"`
+
 }
 
 func main() {
@@ -24,6 +25,11 @@ func main() {
     }
     fmt.Printf("\n%#v\n\n", t)
     fmt.Printf("%#v\n\n", buf.Bytes())
-    //o := &Example{}
-    //err = struc.Unpack(&buf, o)
+    o := &Example{}
+    err = struc.Unpack(&buf, o)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Unpacked struc:  %#v\n\n", o)
+    fmt.Printf("\nProtocol %v\n", o.Protocol)
 }
