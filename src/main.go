@@ -6,16 +6,17 @@ import (
 	"net"
 	"os"
     "io"
-	"math"
+	//"math"
 	"bufio"
+    "bytes"
 	"crypto/sha1"
 	"encoding/binary"
-	"github.com/roman-kachanovsky/go-binary-pack/binary-pack"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
+    "github.com/lunixbochs/struc"
 )
 
 func RetrieveROM(filename string) ([]byte, error) {
@@ -135,7 +136,7 @@ func main() {
         log.Fatal(err)
     }
 	// read 2^14 bytes from the Reader called r
-	n := int(math.Pow(2, 14))
+	n := 61//int(math.Pow(2, 2))
 	p := make([]byte, n)
 	_, err = io.ReadFull(conn, p)
     if err != nil {
@@ -143,7 +144,7 @@ func main() {
     }
 
     fmt.Println("Read in bytes: ", string(p))
-
+    fmt.Printf("\nStruct Returned = %#v\n",hShake.decode(p))
 
 
 } // main
@@ -169,6 +170,15 @@ type PeerMessage interface {
 	decode([]byte) PeerMessage
 }
 
+type HandshakeStruct struct {
+    Length byte `struc:"big"`
+    Protocol string `struc:"[19]byte"`
+    Space [8]byte
+    Info_hash string `struc:"[20]byte"`
+    Peer_id string `struc:"[20]byte"`
+}
+
+
 type Handshake struct {
 	info_hash string
 	peer_id   string
@@ -181,34 +191,35 @@ func (h *Handshake) init(info_hash []byte, peer_id string) {
 }
 
 func (h *Handshake) encode() []byte {
-	format := []string{"1s", "19s", "8s", "20s", "20s"}
-	values := []interface{}{string(19), "BitTorrent protocol", string([8]byte{0,0,0,0,0,0,0,0}), h.info_hash, h.peer_id}
-	bp := new(binary_pack.BinaryPack)
+    var buf bytes.Buffer
+    t := &HandshakeStruct{byte(19), "BitTorrent protocol", [8]byte{0,0,0,0,0,0,0,0},h.info_hash, h.peer_id}
+    err := struc.Pack(&buf, t)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("\n%#v\n\n", t)
+    fmt.Printf("%#v\n\n", buf.Bytes())
 
-	data2, err := bp.Pack(format, values)
-	fmt.Printf("Packed data: %#v\n", data2)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return data2
+	return buf.Bytes()
 }
 
 func (h *Handshake) decode(data []byte) PeerMessage {
-	if len(data) < (49 + 19) {
+	/*if len(data) < (49 + 19) {
 		return nil
-	}
-	bp := new(binary_pack.BinaryPack)
-	unpacked_values, err := bp.UnPack([]string{"B", "19s", "8x", "20s", "20s"}, data)
-	if err != nil {
-		log.Fatal(err)
-	}
+	}*/
+    var buf bytes.Buffer
+    buf.Write(data)
 
-	fmt.Println("Un Packed data: ", unpacked_values)
-	info_hash := unpacked_values[2].(string)
-	peer_id := unpacked_values[3].(string)
+    o := &HandshakeStruct{}
+    err := struc.Unpack(&buf, o)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Unpacked struc:  %#v\n\n", o)
+    fmt.Printf("\nProtocol %v\n", o.Protocol)
 
-	hShake := Handshake{info_hash: info_hash, peer_id: peer_id}
+
+	hShake := Handshake{info_hash: o.Info_hash, peer_id: o.Peer_id}
 
 	var hShakePeerMessage PeerMessage = &hShake
 	return hShakePeerMessage
