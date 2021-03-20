@@ -185,8 +185,49 @@ func PeerStreamIterator(service string, peerMessage chan PeerMessage, peer_id st
 		log.Fatal(err)
 	}
 	fmt.Printf("\nBitArray data: %v\n", p)
+
+    bSet := InitNewByteset(p)
+    bitNumToSet := 0
+    bSet.SetBit(bitNumToSet, false)
+    bSet.SetBit(8, false)
+    fmt.Printf("\nBitset data: %#v\n", bSet)
+    fmt.Printf("\nBitset element:  %8b\n", bSet[0])
+    fmt.Printf("\nbit at element [%v] is:  %v\n",4, bSet.GetBit(bitNumToSet))
 	var hShakePeerMessage PeerMessage = &hShake
 	peerMessage <- hShakePeerMessage
+} // PeerStreamIterator
+
+type BitsetByte []byte
+
+func InitNewByteset(bray []byte) BitsetByte {
+    return BitsetByte(bray)
+}
+
+/*func NewUint8(n int) BitsetUint8 {
+	return make(BitsetUint8, (n+7)/8)
+}*/
+
+func (b BitsetByte) GetBit(index int) bool {
+	pos := index / 8
+	j := uint(7 - index % 8)
+    fmt.Printf("\nbit at element (GetBit):  %v", b[pos])
+	return (b[pos] & (byte(1) << j)) != 0
+}
+
+func (b BitsetByte) SetBit(index int, value bool) {
+	pos := index / 8
+    j := uint(7 - index % 8)
+    fmt.Println("j =", j)
+	if value {
+		b[pos] |= (byte(1) << j)
+	} else {
+		b[pos] &= ^(byte(1) << j)
+	}
+    fmt.Printf("\nBitset element (in SetBit):  %8b\n", b[pos])
+}
+
+func (b BitsetByte) Len() int {
+	return 8 * len(b)
 }
 
 // PeerMessage Enums
@@ -218,7 +259,7 @@ type HandshakeStruct struct {
 	Peer_id   string `struc:"[20]byte"`
 }
 
-type InterestedStruct struct {
+type LengthIdStruct struct {
 	Length int `struc:"big"`
 	Id     byte
 }
@@ -228,7 +269,7 @@ type Interested struct {
 
 func (i *Interested) encode() []byte {
 	var buf bytes.Buffer
-	t := &InterestedStruct{1, InterestedEnum}
+	t := &LengthIdStruct{1, InterestedEnum}
 	err := struc.Pack(&buf, t)
 	if err != nil {
 		log.Fatal(err)
