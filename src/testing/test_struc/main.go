@@ -9,10 +9,10 @@ import (
 
 type Example struct {
     Length byte `struc:"big"`
-    Protocol string `struc:"[19]int8"`
+    Protocol string `struc:"[19]byte"`
     Space [8]byte
-    Info_hash string `struc:"[20]int8"`
-    Peer_id string `struc:"[20]int8"`
+    Info_hash string `struc:"[20]byte"`
+    Peer_id string `struc:"[20]byte"`
 
 }
 
