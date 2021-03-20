@@ -5,7 +5,8 @@ import (
 	"log"
 	"net"
 	"os"
-	//"math"
+    "io"
+	"math"
 	"bufio"
 	"crypto/sha1"
 	"encoding/binary"
@@ -99,7 +100,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("data retrieved: ", string(b))
+	// fmt.Println("data retrieved: ", string(b))
 
 	peerDecoder := Decoder{_data: b, _index: 0}
 	peerMap, ok := peerDecoder.decode()
@@ -107,34 +108,43 @@ func main() {
 		panic("EOFError! - Unexpected end of file!")
 	}
 	peers := peerMap.(map[interface{}]interface{})["peers"].(string)
-	fmt.Printf("%#v : %#v", peers[0:4], peers[4:6])
 
-	ipBytes := peers[0:4]
+    ipBytes := peers[0:4]
 	ip := net.IP(ipBytes)
 
 	port := binary.BigEndian.Uint16([]byte(peers[4:6]))
 
-	fmt.Println("\n", ip, ":", port)
+    service := ip.String() + ":" + strconv.Itoa(int(port))
+    fmt.Println("Service: ", service)
 
-	format := []string{"I", "?", "d", "6s"}
-	values := []interface{}{4, true, 3.14, "Golang"}
-	bp := new(binary_pack.BinaryPack)
+    tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-	data2, err := bp.Pack(format, values)
-	fmt.Printf("Packed data: %#v", data2)
+    conn, err := net.DialTCP("tcp", nil, tcpAddr)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-	unpacked_values, err := bp.UnPack(format, data2)
-	fmt.Println("Un Packed data: ", unpacked_values)
+    hShake := Handshake{}
+    hShake.init(bs, peer_id)
 
-	size, err := bp.CalcSize(format)
-	fmt.Println("size:", size)
-
+    _, err = conn.Write(hShake.encode())
+    if err != nil {
+        log.Fatal(err)
+    }
 	// read 2^14 bytes from the Reader called r
-	/*
-	   n := int(math.Pow(2, 14))
-	   p := make([]byte, n)
-	   _, err := io.ReadFull(r, p)
-	*/
+	n := int(math.Pow(2, 14))
+	p := make([]byte, n)
+	_, err = io.ReadFull(conn, p)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Println("Read in bytes: ", string(p))
+
+
 
 } // main
 
@@ -171,12 +181,12 @@ func (h *Handshake) init(info_hash []byte, peer_id string) {
 }
 
 func (h *Handshake) encode() []byte {
-	format := []string{"B", "19s", "8x", "20s", "20s"}
-	values := []interface{}{19, "BitTorrent protocol", h.info_hash, h.peer_id}
+	format := []string{"1s", "19s", "8s", "20s", "20s"}
+	values := []interface{}{string(19), "BitTorrent protocol", string([8]byte{0,0,0,0,0,0,0,0}), h.info_hash, h.peer_id}
 	bp := new(binary_pack.BinaryPack)
 
 	data2, err := bp.Pack(format, values)
-	fmt.Printf("Packed data: %#v", data2)
+	fmt.Printf("Packed data: %#v\n", data2)
 	if err != nil {
 		log.Fatal(err)
 	}
