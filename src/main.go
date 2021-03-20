@@ -150,6 +150,15 @@ func main() {
     fmt.Printf("Length of peer_id: %v\n", len(returnHShake.peer_id))
     fmt.Printf("Length of info_hash: %v\n", len(returnHShake.info_hash))
 
+    remote_id := returnHShake.peer_id
+    fmt.Println("\nRemote id: ", remote_id)
+
+    message := Interested{}
+    fmt.Println("Sending Message:  Interested")
+    _, err = conn.Write(message.encode())
+    if err != nil {
+        log.Fatal(err)
+    }
 
 } // main
 
@@ -182,6 +191,27 @@ type HandshakeStruct struct {
     Peer_id string `struc:"[20]byte"`
 }
 
+type InterestedStruct struct {
+    length int
+    id byte
+}
+
+type Interested struct {
+}
+
+func (i *Interested) encode() []byte {
+    var buf bytes.Buffer
+    t := &InterestedStruct{1, InterestedEnum}
+    err := struc.Pack(&buf, t)
+    if err != nil {
+        log.Fatal(err)
+    }
+    return buf.Bytes()
+}
+
+func (i *Interested) decode(data []byte) PeerMessage {
+    return nil
+}
 
 type Handshake struct {
 	info_hash string
