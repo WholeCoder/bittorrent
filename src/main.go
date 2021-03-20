@@ -127,6 +127,7 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
+    defer conn.Close()
 
     hShake := Handshake{}
     hShake.init(bs, peer_id)
@@ -136,7 +137,7 @@ func main() {
         log.Fatal(err)
     }
 	// read 2^14 bytes from the Reader called r
-	n := 68//int(math.Pow(2, 2))
+	n := 68
 	p := make([]byte, n)
 	_, err = io.ReadFull(conn, p)
     if err != nil {
@@ -145,6 +146,9 @@ func main() {
     fmt.Printf("Read in bytes as string: %v\n", string(p))
     fmt.Printf("Read in bytes: %#v\nLength of bytes: %v\n", p, len(p))
     fmt.Printf("\nStruct Returned = %#v\n",hShake.decode(p))
+    returnHShake := hShake.decode(p).(*Handshake)
+    fmt.Printf("Length of peer_id: %v\n", len(returnHShake.peer_id))
+    fmt.Printf("Length of info_hash: %v\n", len(returnHShake.info_hash))
 
 
 } // main
