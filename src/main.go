@@ -167,14 +167,14 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Printf("\nBitArray lenth: %v\tMessage Id: %#v\n", int(binary.BigEndian.Uint32(p[0:4])), p[4])
+    fmt.Printf("\nBitArray lenth: %v\tMessage Id: %#v\n", int(binary.BigEndian.Uint32(p[0:4])) - 1, p[4])
 
-    p = make([]byte, binary.BigEndian.Uint32(p[0:4]))
+    p = make([]byte, binary.BigEndian.Uint32(p[0:4]) - 1)
 	_, err = io.ReadFull(conn, p)
     if err != nil {
         log.Fatal(err)
     }
-    // fmt.Printf("\nBitArray data: %v\n", p)
+    fmt.Printf("\nBitArray data: %v\n", p)
 } // main
 
 // PeerMessage Enums
