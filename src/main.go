@@ -184,18 +184,12 @@ func PeerStreamIterator(service string, peerMessage chan PeerMessage, peer_id st
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("\nBitArray data: %v\n", p)
 
-    bSet := InitNewByteset(p)
-    bitNumToSet := len(p)*8-1-1
-    fmt.Printf("len = %v\n", len(p))
-    bSet.SetBit(bitNumToSet, false)
+    bField := BitField{}
+    bField.init(p)
 
-    fmt.Printf("\nBitset data: %#v\n", bSet)
-    fmt.Printf("\nBitset element:  %8b\n", bSet[len(p)-1])
-    fmt.Printf("\nbit at element [%v] is:  %v\n",bitNumToSet, bSet.GetBit(bitNumToSet))
-	var hShakePeerMessage PeerMessage = &hShake
-	peerMessage <- hShakePeerMessage
+	var bFieldPeerMessage PeerMessage = &bField
+	peerMessage <- bFieldPeerMessage
 } // PeerStreamIterator
 
 type BitsetByte []byte
@@ -252,6 +246,33 @@ type PeerMessage interface {
 	decode([]byte) PeerMessage
 }
 
+type BitField struct {
+    bitfield BitsetByte
+}
+
+func (b *BitField) init(data []byte) {
+    b.bitfield = InitNewByteset(data)
+}
+
+func (b *BitField) encode() []byte {
+	var buf bytes.Buffer
+	t := &LengthIdStruct{uint32(len(b.bitfield) + 1), BitFieldEnum}
+	err := struc.Pack(&buf, t)
+	if err != nil {
+		log.Fatal(err)
+	}
+    buf.Write(b.bitfield)
+    return buf.Bytes()
+}
+
+func (b *BitField) decode(slice []byte) PeerMessage {
+    //message_length := binary.LittleEndian.Uint32(slice[0:4])
+    bField := BitField{}
+    bField.init(slice[5:])
+	var bFieldPeerMessage PeerMessage = &bField
+    return bFieldPeerMessage
+}
+
 type HandshakeStruct struct {
 	Length    byte   `struc:"big"`
 	Protocol  string `struc:"[19]byte"`
@@ -261,7 +282,7 @@ type HandshakeStruct struct {
 }
 
 type LengthIdStruct struct {
-	Length int `struc:"big"`
+	Length uint32 `struc:"big"`
 	Id     byte
 }
 

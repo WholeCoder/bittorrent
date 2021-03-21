@@ -30,6 +30,11 @@ func main() {
     l = append(l, "test string")
     l = append(l, 42)
     printType(l)
+
+    h := (uint32)(255)
+    a := make([]byte, 4)
+    binary.BigEndian.PutUint32(a, h)
+    fmt.Printf("\nbyte array is:  %#v\n", a)
 }
 
 func printType(myInterface interface{}) {
