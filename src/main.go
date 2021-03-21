@@ -188,8 +188,20 @@ func PeerStreamIterator(service string, peerMessage chan PeerMessage, peer_id st
     bField := BitField{}
     bField.init(p)
 
-	var bFieldPeerMessage PeerMessage = &bField
-	peerMessage <- bFieldPeerMessage
+	var pMessage PeerMessage = &bField
+	peerMessage <- pMessage
+
+    n = 5
+	p = make([]byte, n)
+	_, err = io.ReadFull(conn, p)
+	if err != nil {
+		log.Fatal(err)
+	}
+    if p[4] == UnchokeEnum {
+        unchokeMsg := Unchoke{}
+        pMessage = &unchokeMsg
+        peerMessage <- pMessage
+    }
 } // PeerStreamIterator
 
 type BitsetByte []byte
@@ -287,6 +299,17 @@ type LengthIdStruct struct {
 }
 
 type Interested struct {
+}
+
+type Unchoke struct {
+}
+
+func (u *Unchoke) encode() []byte {
+    return nil
+}
+
+func (u *Unchoke) decode(data []byte) PeerMessage {
+    return nil
 }
 
 func (i *Interested) encode() []byte {
