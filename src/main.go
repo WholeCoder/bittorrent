@@ -187,12 +187,13 @@ func PeerStreamIterator(service string, peerMessage chan PeerMessage, peer_id st
 	fmt.Printf("\nBitArray data: %v\n", p)
 
     bSet := InitNewByteset(p)
-    bitNumToSet := 0
+    bitNumToSet := len(p)*8-1-1
+    fmt.Printf("len = %v\n", len(p))
     bSet.SetBit(bitNumToSet, false)
-    bSet.SetBit(8, false)
+
     fmt.Printf("\nBitset data: %#v\n", bSet)
-    fmt.Printf("\nBitset element:  %8b\n", bSet[0])
-    fmt.Printf("\nbit at element [%v] is:  %v\n",4, bSet.GetBit(bitNumToSet))
+    fmt.Printf("\nBitset element:  %8b\n", bSet[len(p)-1])
+    fmt.Printf("\nbit at element [%v] is:  %v\n",bitNumToSet, bSet.GetBit(bitNumToSet))
 	var hShakePeerMessage PeerMessage = &hShake
 	peerMessage <- hShakePeerMessage
 } // PeerStreamIterator
