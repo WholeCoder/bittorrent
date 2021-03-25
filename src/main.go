@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
-	//"math"
+	"math"
 	"bufio"
 	"bytes"
 	"crypto/sha1"
@@ -204,10 +204,18 @@ func PeerStreamIterator(service string, peerMessage chan PeerMessage, peer_id st
     }
 
 
-    
 
 
 
+
+    requestMessage := Request{index:0, begin:0, length:int(math.Pow(2, 14))}
+	fmt.Println("Sending Message: Request")
+	_, err = conn.Write(requestMessage.encode())
+	if err != nil {
+		fmt.Println("ERROR writing Request Message")
+		log.Fatal(err)
+	}
+	fmt.Printf("\nRequest.encode():  %#v\n", requestMessage.encode())
 
 
 
@@ -224,16 +232,14 @@ func PeerStreamIterator(service string, peerMessage chan PeerMessage, peer_id st
 		log.Fatal(err)
 	}
     message_length := binary.BigEndian.Uint32(p[0:4])
-    if message_length == 0 {
-        fmt.Println("keepalive found")
-    }
+    fmt.Printf("\nmessage Length:  %v\n", message_length)
     n = 1
 	p = make([]byte, n)
 	_, err = io.ReadFull(conn, p)
 	if err != nil {
 		log.Fatal(err)
 	}
-    fmt.Println("message_id =",p[0])
+    fmt.Printf("\n\nmessage_id = %v (Piece Id = %v)\n\n",p[0], PieceEnum)
 
 } // PeerStreamIterator
 
