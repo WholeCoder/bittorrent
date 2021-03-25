@@ -202,6 +202,39 @@ func PeerStreamIterator(service string, peerMessage chan PeerMessage, peer_id st
         pMessage = &unchokeMsg
         peerMessage <- pMessage
     }
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    n = 4
+	p = make([]byte, n)
+	_, err = io.ReadFull(conn, p)
+	if err != nil {
+		log.Fatal(err)
+	}
+    message_length := binary.BigEndian.Uint32(p[0:4])
+    if message_length == 0 {
+        fmt.Println("keepalive found")
+    }
+    n = 1
+	p = make([]byte, n)
+	_, err = io.ReadFull(conn, p)
+	if err != nil {
+		log.Fatal(err)
+	}
+    fmt.Println("message_id =",p[0])
+
 } // PeerStreamIterator
 
 type BitsetByte []byte
@@ -256,6 +289,52 @@ const (
 type PeerMessage interface {
 	encode() []byte
 	decode([]byte) PeerMessage
+}
+
+type RequestStruct struct {
+	Message_length    int   `struc:"big"`
+    Message_id byte
+    Index int
+    Begin int
+    Request_length int
+}
+
+type Request struct {
+    index int
+    begin int
+    length int
+}
+
+
+func (r *Request) encode() []byte {
+    // <len=0013><id=6><index><begin><length>
+	var buf bytes.Buffer
+	t := &RequestStruct{13, RequestEnum, r.index, r.begin, r.length}
+	err := struc.Pack(&buf, t)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("\n%#v\n\n", t)
+	fmt.Printf("%#v\n\n", buf.Bytes())
+
+	return buf.Bytes()
+}
+
+func (r *Request) decode(data []byte) PeerMessage {
+	var buf bytes.Buffer
+	buf.Write(data)
+
+	o := &RequestStruct{}
+	err := struc.Unpack(&buf, o)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Unpacked struc:  %#v\n\n", o)
+
+    request := Request{index: o.Index, begin: o.Begin, length: o.Message_length}
+
+	var requestPeerMessage PeerMessage = &request
+	return requestPeerMessage
 }
 
 type BitField struct {
