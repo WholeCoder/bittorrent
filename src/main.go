@@ -225,22 +225,31 @@ func PeerStreamIterator(service string, peerMessage chan PeerMessage, peer_id st
 
 
 
+    var buf bytes.Buffer
     n = 4
 	p = make([]byte, n)
 	_, err = io.ReadFull(conn, p)
 	if err != nil {
 		log.Fatal(err)
 	}
+    buf.Write(p)
+
     message_length := binary.BigEndian.Uint32(p[0:4])
     fmt.Printf("\nmessage Length:  %v\n", message_length)
-    n = 1
+    n = int(message_length)
 	p = make([]byte, n)
 	_, err = io.ReadFull(conn, p)
 	if err != nil {
 		log.Fatal(err)
 	}
-    fmt.Printf("\n\nmessage_id = %v (Piece Id = %v)\n\n",p[0], PieceEnum)
 
+    buf.Write(p)
+
+    piece := Piece{}
+	returnPiece := piece.decode(buf.Bytes()).(*Piece)
+
+    pMessage = returnPiece
+    peerMessage <- pMessage
 } // PeerStreamIterator
 
 type BitsetByte []byte
@@ -295,6 +304,53 @@ const (
 type PeerMessage interface {
 	encode() []byte
 	decode([]byte) PeerMessage
+}
+
+type PieceStruct struct {
+    Length int  `struc:"big"`
+    Message_id byte
+    Index int
+    Begin int
+}
+
+type Piece struct {
+    index int
+    begin int
+    block []byte
+}
+
+func (p *Piece) encode() []byte {
+	// <length prefix><message ID><index><begin><block>
+    var buf bytes.Buffer
+	t := &PieceStruct{len(p.block) + 9, PieceEnum, p.index, p.begin}
+	err := struc.Pack(&buf, t)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("\n%#v\n\n", t)
+	fmt.Printf("%#v\n\n", buf.Bytes())
+
+	buf.Write(p.block)
+
+    return buf.Bytes()
+}
+
+func (p *Piece) decode(data []byte) PeerMessage {
+	// <length prefix><message ID><index><begin><block>
+	var buf bytes.Buffer
+    buf.Write(data[0:13])
+
+	o := &PieceStruct{}
+	err := struc.Unpack(&buf, o)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Unpacked struc:  %#v\n\n", o)
+
+    piece := Piece{index: o.Index, begin: o.Begin, block: data[13:]}
+
+	var piecePeerMessage PeerMessage = &piece
+	return piecePeerMessage
 }
 
 type RequestStruct struct {
