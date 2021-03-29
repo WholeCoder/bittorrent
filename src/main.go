@@ -206,50 +206,45 @@ func PeerStreamIterator(service string, peerMessage chan PeerMessage, peer_id st
 
 
 
+    for i := 0; i < 2; i++ {
 
-
-    requestMessage := Request{index:0, begin:0, length:int(math.Pow(2, 14))}
-	fmt.Println("Sending Message: Request")
-	_, err = conn.Write(requestMessage.encode())
-	if err != nil {
-		fmt.Println("ERROR writing Request Message")
-		log.Fatal(err)
-	}
-	fmt.Printf("\nRequest.encode():  %#v\n", requestMessage.encode())
-
-
-
+        requestMessage := Request{index:0, begin:i, length:int(math.Pow(2, 14))}
+	    fmt.Println("Sending Message: Request")
+	    _, err = conn.Write(requestMessage.encode())
+	    if err != nil {
+		    fmt.Println("ERROR writing Request Message")
+		    log.Fatal(err)
+	    }
+	    fmt.Printf("\nRequest.encode():  %#v\n", requestMessage.encode())
 
 
 
+        var buf bytes.Buffer
+        n = 4
+	    p = make([]byte, n)
+	    _, err = io.ReadFull(conn, p)
+	    if err != nil {
+		    log.Fatal(err)
+	    }
+        buf.Write(p)
 
+        message_length := binary.BigEndian.Uint32(p[0:4])
+        fmt.Printf("\nmessage Length:  %v\n", message_length)
+        n = int(message_length)
+	    p = make([]byte, n)
+	    _, err = io.ReadFull(conn, p)
+	    if err != nil {
+		    log.Fatal(err)
+	    }
 
+        buf.Write(p)
 
-    var buf bytes.Buffer
-    n = 4
-	p = make([]byte, n)
-	_, err = io.ReadFull(conn, p)
-	if err != nil {
-		log.Fatal(err)
-	}
-    buf.Write(p)
+        piece := Piece{}
+	    returnPiece := piece.decode(buf.Bytes()).(*Piece)
 
-    message_length := binary.BigEndian.Uint32(p[0:4])
-    fmt.Printf("\nmessage Length:  %v\n", message_length)
-    n = int(message_length)
-	p = make([]byte, n)
-	_, err = io.ReadFull(conn, p)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-    buf.Write(p)
-
-    piece := Piece{}
-	returnPiece := piece.decode(buf.Bytes()).(*Piece)
-
-    pMessage = returnPiece
-    peerMessage <- pMessage
+        pMessage = returnPiece
+        peerMessage <- pMessage
+    }
 } // PeerStreamIterator
 
 type BitsetByte []byte

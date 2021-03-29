@@ -7,7 +7,7 @@
 *.swp
 *.whl
 *.swo
-*.swn
+*.swm
 
 # Test binary, built with `go test -c`
 *.test
