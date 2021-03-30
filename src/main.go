@@ -56,7 +56,7 @@ func main() {
 		log.Fatal(err)
 	}
 	//fmt.Println(string(data))
-	decoder := Decoder{_data: data, _index: 0}
+	decoder := Decoder{_data: data}
 	torrent, ok := decoder.decode()
 	if !ok {
 		panic("EOFError! - Unexpected end of file!")
