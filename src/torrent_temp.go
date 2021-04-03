@@ -74,7 +74,7 @@ func (t *Torrent) total_size() int {
     return t.files[0].length
 }
 
-func (t *Torrent) pieces() {
+func (t *Torrent) pieces() []string {
     data := t.meta_info.(map[interface{}]interface{})["info"].(map[interface{}]interface{})["pieces"].(string)
     pieces := []string{}
     offset := 0
