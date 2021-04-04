@@ -64,7 +64,7 @@ func (t *Torrent) multi_file() bool {
 }
 
 func (t *Torrent) piece_length() int {
-    return t.meta_info.(map[interface{}]interface{})["infoo"].(map[interface{}]interface{})["piece length"].(int)
+    return t.meta_info.(map[interface{}]interface{})["info"].(map[interface{}]interface{})["piece length"].(int)
 }
 
 func (t *Torrent) total_size() int {

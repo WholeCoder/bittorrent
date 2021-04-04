@@ -222,17 +222,18 @@ func (p *PieceManager) remove_peer(peer_id string) {
     }
 }
 
-func (p *PieceManager) next_request(peer_id string) Block {
+func (p *PieceManager) next_request(peer_id string) *Block {
     _, ok := p.peers[peer_id]
     if !ok {
         return nil
     }
 
-    block = p._expired_requests(peer_id)
+    block := p._expired_requests(peer_id)
     if block == nil {
         block = p._next_ongoing(peer_id)
         if block == nil {
-            block = p._get_rarest_piece(peer_id).next_request()
+            var rarest_piece PieceWithBlocks = p._get_rarest_piece(peer_id)
+            block = rarest_piece.next_request()
         }
     }
     return block
@@ -244,12 +245,18 @@ func RemovePendingRequestIndex(s []PendingRequest, index int) []PendingRequest {
     return append(ret, s[index+1:]...)
 }
 
-func RemovePieceWithBlocks(s []PieceWithBlocks, pWithBlocks PieceWithBlocks) []PieceWithBlocks {
+func RemovePieceWithBlocks(s []PieceWithBlocks, pWithBlocks *PieceWithBlocks) []PieceWithBlocks {
     ret := make([]PieceWithBlocks, 0)
     index := 0
-    for s[index] != pWithBlocks {
+    for &s[index] != pWithBlocks {
         index++
     }
+    ret = append(ret, s[:index]...)
+    return append(ret, s[index+1:]...)
+}
+
+func PopPieceWithBlocks(s []PieceWithBlocks, index int) []PieceWithBlocks {
+    ret := make([]PieceWithBlocks, 0)
     ret = append(ret, s[:index]...)
     return append(ret, s[index+1:]...)
 }
@@ -269,17 +276,17 @@ func (p *PieceManager) block_received(peer_id string, piece_index int, block_off
             pieces = append(pieces, p)
         }
     }
-    var piece Piece = nil
+    var piece *PieceWithBlocks = nil
     if len(pieces) > 0 {
-        piece = pieces[0]
+        piece = &pieces[0]
     }
     if piece != nil {
         piece.block_received(block_offset, data)
         if piece.is_complete() {
             if piece.is_hash_matching() {
                 p._write(piece)
-                RemovePieceWithBlocks(p.ongoing_pieces, piece)
-                p.have_pieces = append(p.have_pieces, piece)
+                p.ongoing_pieces = RemovePieceWithBlocks(p.ongoing_pieces, piece)
+                p.have_pieces = append(p.have_pieces, *piece)
                 complete := (p.total_pieces - len(p.missing_pieces) - len(p.ongoing_pieces))
                 fmt.Printf("\n%d / %d pieces downloaded %.3f %%\n",complete, p.total_pieces, float64(complete)/float64(p.total_pieces)*100.0)
             } else {
@@ -292,26 +299,26 @@ func (p *PieceManager) block_received(peer_id string, piece_index int, block_off
     }
 }
 
-func (p *PieceManager) _expired_requests(peer_id string) Block {
-    current := time.Now().Unix() * 1000 // milli-seconds since epoch (int)
+func (p *PieceManager) _expired_requests(peer_id string) *Block {
+    current := int(time.Now().Unix() * 1000) // milli-seconds since epoch (int)
     for _, request := range p.pending_blocks {
         if p.peers[peer_id].GetBit(request.block.piece) {
             if request.added + p.max_pending_time < current {
                 fmt.Printf("\nRe-requesting block %d for piece %d\n", request.block.offset, request.block.piece)
                 request.added = current
-                return request.block
+                return &request.block
             } // end if
         } // if
     } // end for request := p.pending_blocks
     return nil
 }
 
-func (p *PieceManager) _next_ongoing(peer_id string) Block {
+func (p *PieceManager) _next_ongoing(peer_id string) *Block {
     for _, piece := range p.ongoing_pieces {
         if p.peers[peer_id].GetBit(piece.index) {
-            block = piece.next_request()
+            block := piece.next_request()
             if block != nil {
-                p.pending_blocks = append(p.pending_blocks, PendingRequest{block: block, added: time.Now().Unix() * 1000})
+                p.pending_blocks = append(p.pending_blocks, PendingRequest{block: *block, added: int(time.Now().Unix() * 1000)})
                 return block
             } /// if block != nil
         } // end if GetBit
@@ -320,16 +327,50 @@ func (p *PieceManager) _next_ongoing(peer_id string) Block {
 }
 
 func (p *PieceManager) _get_rarest_piece(peer_id string) PieceWithBlocks {
-    piece_count := map[Piece]int{}
+    piece_count := map[PieceWithBlocks]int{}
     for _, piece := range p.missing_pieces {
         if !p.peers[peer_id].GetBit(piece.index) {
             continue
         }
-        for _, p := range p.peers {
-            if p.peers[p].GetBit(piece.index) {
+        for key, _ := range p.peers {
+            if p.peers[key].GetBit(piece.index) {
                 piece_count[piece] += 1
             } // end GetBit
         } // end for p.peers
     } // end for missing_pieces
-    rarest_piece := 
+    rarest_piece := p.missing_pieces[0]
+    rarest_piece_count := piece_count[rarest_piece]
+    for key, value := range piece_count {
+        if value > rarest_piece_count {
+            rarest_piece = key
+            rarest_piece_count = value
+        }
+    }
+    p.missing_pieces = RemovePieceWithBlocks(p.missing_pieces, &rarest_piece)
+    p.ongoing_pieces = append(p.ongoing_pieces, rarest_piece)
+    return rarest_piece
+}
+
+func (p *PieceManager) _next_missing(peer_id string) *Block {
+    for index, piece := range p.missing_pieces {
+        if p.peers[peer_id].GetBit(piece.index) {
+            piece2 := piece
+            p.missing_pieces = PopPieceWithBlocks(p.missing_pieces, index)
+            p.ongoing_pieces = append(p.ongoing_pieces, piece2)
+
+            return piece.next_request()
+        }
+    }
+    return nil
+}
+
+func (p *PieceManager) _write(piece *PieceWithBlocks) {
+    pos := int64(piece.index * p.torrent.piece_length())
+
+    // os.lseek(p.fd, pos, os.SEEK_SET)
+    // os.wirte(p.fd, piece.data)
+    _, err := p.fd.WriteAt([]byte(piece.data()), pos)
+    if err != nil {
+        log.Fatal(err)
+    }
 }
