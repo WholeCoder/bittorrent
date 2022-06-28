@@ -1,5 +1,5 @@
 package main
-//fd *os.File // **important**  Must call defer pieceManager.closeFile() to ensure proprer closing!!
+//fd *os.File // **important**  Must call defer pieceManager.closeFile() to ensure proper closing!!
 import (
 	"fmt"
 	"io"
