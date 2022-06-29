@@ -1,4 +1,7 @@
 package main
+
+// Created By:  Ruben Pierich
+// Use:  Bittorrent client
 //fd *os.File // **important**  Must call defer pieceManager.closeFile() to ensure proper closing!!
 import (
 	"fmt"
