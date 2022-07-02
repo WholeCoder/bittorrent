@@ -11,7 +11,7 @@ import (
     "crypto/sha1"
 )
 
-//fd *os.File // **important**  Must call defer pieceManager.closeFile() to ensure proprer closing!!
+//fd *os.File // **important**  Must call defer pieceManager.closeFile() to ensure proper closing!!
 
 const (
     MissingEnum = iota
